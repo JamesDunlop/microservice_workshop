@@ -2,7 +2,6 @@
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading;
-using fastJSON;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Framing.Impl;
 using RentalOffer.Core;
@@ -40,12 +39,6 @@ namespace RentalOffer.Manager {
 
                 Thread.Sleep(2000);
 
-                var need = JSON.ToObject(message) as NeedPacket;
-
-                if (need != null && need.Solutions.Count > 0)
-                {
-                    Console.WriteLine(" [x] Received: {0}", message);
-                }
 
             }
         }

@@ -1,13 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
-using fastJSON;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RentalOffer.Core;
 
 namespace RentalOffer.Monitor
 {
 
-    public class Brand
+    public class Location
     {
 
         private readonly string busName;
@@ -17,10 +20,10 @@ namespace RentalOffer.Monitor
             string host = args[0];
             string busName = args[1];
 
-            new Connection(host, busName).WithOpen(new Brand(busName).MonitorNeeds);
+            new Connection(host, busName).WithOpen(new Location(busName).MonitorNeeds);
         }
 
-        public Brand(string busName)
+        public Location(string busName)
         {
             this.busName = busName;
         }
@@ -28,31 +31,39 @@ namespace RentalOffer.Monitor
         private void MonitorNeeds(Connection connection)
         {
             var sub = connection.Subscribe();
-            Console.WriteLine(" [*] Brand offer service waiting for needs on the {0} bus... To exit press CTRL+C", busName);
+            Console.WriteLine(" [*] Location offer service waiting for needs on the {0} bus... To exit press CTRL+C", busName);
 
             while (true)
             {
                 var e = sub.Next();
-                var message = Encoding.UTF8.GetString(e.Body);
+                var json = Encoding.UTF8.GetString(e.Body);
 
-                Thread.Sleep(2000);
+                var message = JsonConvert.DeserializeObject<JObject>(json);
 
-                var need = JSON.ToObject(message) as NeedPacket;
+                var existingUser = message["user"];
+                var existingSolutions = message["solutions"];
+                bool hasNoSolutions = existingSolutions != null && !existingSolutions.Any();
 
-                if (need != null && need.Solutions.Count == 0)
+                if (message != null && hasNoSolutions && existingUser != null && existingUser["location"] != null)
                 {
-                    Console.WriteLine(" [x] Received: {0}", message);
-                    need.ProposeSolution("brand offer of 10% discount");
-                    PublishBrandOffer(connection, need);
+                    var solutions = new JArray();
+
+                    var solution = new JObject(
+                        new JProperty("offer", "location discount"),
+                        new JProperty("discount", "15%")
+                        );
+
+                    solutions.Add(solution);
+
+                    message["solutions"] = solutions;
+
+                    connection.Publish(JsonConvert.SerializeObject(message));
                 }
             }
+
         }
 
-        private void PublishBrandOffer(Connection connection, NeedPacket need) {
-            string message = need.ToJson();
-            connection.Publish(message);
-            Console.WriteLine(" [x] Published {0} on the {1} bus", message, busName);
-        }
+
     }
 
 }
